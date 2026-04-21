@@ -203,8 +203,9 @@ type LightningTerminal struct {
 
 	ruleMgrs rules.ManagerSet
 
-	rpcProxy   *rpcProxy
-	httpServer *http.Server
+	rpcProxy     *rpcProxy
+	skillPaywall *skillPaywallService
+	httpServer   *http.Server
 
 	sessionRpcServer        *sessionRpcServer
 	sessionRpcServerStarted bool
@@ -375,6 +376,13 @@ func (g *LightningTerminal) Run(ctx context.Context) error {
 		g.cfg, g, g.validateSuperMacaroon, g.permsMgr, g.subServerMgr,
 		g.statusMgr, g.basicLNDClient,
 	)
+
+	g.skillPaywall, err = newSkillPaywallService(
+		g.cfg, g.basicLNDClient,
+	)
+	if err != nil {
+		return fmt.Errorf("could not initialise skill paywall: %w", err)
+	}
 
 	// Register any gRPC services that should be served using LiT's
 	// gRPC server regardless of the LND mode being used.
@@ -1583,6 +1591,13 @@ func (g *LightningTerminal) shutdownSubServers() error {
 		}
 	}
 
+	if g.skillPaywall != nil {
+		if err := g.skillPaywall.stop(); err != nil {
+			log.Errorf("Error stopping skill paywall: %v", err)
+			returnErr = err
+		}
+	}
+
 	if g.httpServer != nil {
 		if err := g.httpServer.Close(); err != nil {
 			log.Errorf("Error stopping UI server: %v", err)
@@ -1671,6 +1686,10 @@ func (g *LightningTerminal) startMainWebServer() error {
 		// should go to lnd or one of the daemons, pass it to the proxy
 		// that handles all those calls.
 		if g.rpcProxy.isHandling(resp, req) {
+			return
+		}
+
+		if g.skillPaywall != nil && g.skillPaywall.isHandling(resp, req) {
 			return
 		}
 

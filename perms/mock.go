@@ -3,25 +3,12 @@
 package perms
 
 import (
-	"net"
-
-	"github.com/lightningnetwork/lnd/autopilot"
-	"github.com/lightningnetwork/lnd/chainreg"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/autopilotrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/devrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/invoicesrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/neutrinorpc"
 	"github.com/lightningnetwork/lnd/lnrpc/peersrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/signrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/watchtowerrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/wtclientrpc"
-	"github.com/lightningnetwork/lnd/lntest/mock"
-	"github.com/lightningnetwork/lnd/routing"
-	"github.com/lightningnetwork/lnd/sweep"
 )
 
 // mockConfig implements lnrpc.SubServerConfigDispatcher. It provides the
@@ -44,20 +31,11 @@ func (t *mockConfig) FetchConfig(subServerName string) (interface{}, bool) {
 	case "InvoicesRPC":
 		return &invoicesrpc.Config{}, true
 	case "WatchtowerClientRPC":
-		return &wtclientrpc.Config{
-			Resolver: func(_, _ string) (*net.TCPAddr, error) {
-				return nil, nil
-			},
-		}, true
+		return newWatchtowerClientRPCConfig(), true
 	case "AutopilotRPC":
-		return &autopilotrpc.Config{
-			Manager: &autopilot.Manager{},
-		}, true
+		return newAutopilotRPCConfig(), true
 	case "ChainRPC":
-		return &chainrpc.Config{
-			ChainNotifier: &chainreg.NoChainBackend{},
-			Chain:         &mock.ChainIO{},
-		}, true
+		return newChainRPCConfig(), true
 	case "DevRPC":
 		return &devrpc.Config{}, true
 	case "NeutrinoKitRPC":
@@ -65,21 +43,11 @@ func (t *mockConfig) FetchConfig(subServerName string) (interface{}, bool) {
 	case "PeersRPC":
 		return &peersrpc.Config{}, true
 	case "RouterRPC":
-		return &routerrpc.Config{
-			Router: &routing.ChannelRouter{},
-		}, true
+		return newRouterRPCConfig(), true
 	case "SignRPC":
-		return &signrpc.Config{
-			Signer: &mock.DummySigner{},
-		}, true
+		return newSignRPCConfig(), true
 	case "WalletKitRPC":
-		return &walletrpc.Config{
-			FeeEstimator: &chainreg.NoChainBackend{},
-			Wallet:       &mock.WalletController{},
-			KeyRing:      &mock.SecretKeyRing{},
-			Sweeper:      &sweep.UtxoSweeper{},
-			Chain:        &mock.ChainIO{},
-		}, true
+		return newWalletKitRPCConfig(), true
 	case "WatchtowerRPC":
 		return &watchtowerrpc.Config{}, true
 	default:
