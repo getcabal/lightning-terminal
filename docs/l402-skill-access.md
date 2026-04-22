@@ -1,7 +1,7 @@
 # Accessing Paywalled Skill Content with L402
 
-This guide explains how to access paywalled skill content served by LiT's
-L402-protected HTTP endpoints.
+This guide explains how to access paywalled skill content served by the
+Vercel-hosted `paywall-web` app.
 
 The flow is:
 
@@ -19,22 +19,17 @@ skills exposed under the same endpoint family.
 
 You need:
 
-- a running `litd` instance that is reachable over HTTPS
-- a connected and unlocked `lnd` behind LiT so the server can mint invoices
+- the paywall host URL
 - a Lightning wallet or node that can pay BOLT11 invoices
 - a way to retrieve the payment preimage after payment if you want to use the
   manual `curl` flow
 - `curl`
 - `jq`
 
-For local development, LiT usually listens on `https://127.0.0.1:8443`. The
-examples below use `curl -k` to ignore the self-signed TLS certificate. Do not
-use `-k` in production unless you intentionally accept the TLS risk.
-
 Set a few shell variables first:
 
 ```shell
-BASE_URL='https://127.0.0.1:8443'
+BASE_URL='https://l402.lightningnode.app'
 SKILL_ID='lightning-desktop-live-local-lnd'
 ```
 
@@ -52,7 +47,7 @@ The manifest is public. It tells you:
 Fetch it:
 
 ```shell
-curl -sk "$BASE_URL/.well-known/l402/skills/$SKILL_ID" | jq
+curl -sS "$BASE_URL/.well-known/l402/skills/$SKILL_ID" | jq
 ```
 
 Example shape:
@@ -74,7 +69,7 @@ Example shape:
 Store the dynamic fields instead of hard-coding them:
 
 ```shell
-MANIFEST=$(curl -sk "$BASE_URL/.well-known/l402/skills/$SKILL_ID")
+MANIFEST=$(curl -sS "$BASE_URL/.well-known/l402/skills/$SKILL_ID")
 PAID_URL=$(echo "$MANIFEST" | jq -r '.paid_url')
 CONTENT_HASH=$(echo "$MANIFEST" | jq -r '.content_sha256')
 PRICE_SATS=$(echo "$MANIFEST" | jq -r '.price_sats')
@@ -88,7 +83,7 @@ Now request the paid content without any authorization header:
 HDRS=$(mktemp)
 BODY=$(mktemp)
 
-curl -sk -D "$HDRS" -o "$BODY" "$BASE_URL$PAID_URL"
+curl -sS -D "$HDRS" -o "$BODY" "$BASE_URL$PAID_URL"
 
 cat "$BODY"
 grep -i '^www-authenticate:' "$HDRS"
@@ -102,14 +97,6 @@ Expected result:
 - one `WWW-Authenticate: L402 ...` header
 
 The response body should not contain the protected markdown.
-
-You can also verify that ordinary UI credentials do not bypass payment:
-
-```shell
-curl -ski -u test:test "$BASE_URL$PAID_URL"
-```
-
-This should still return `402 Payment Required`.
 
 ## Step 3: Extract the Invoice and Macaroon From the Challenge
 
@@ -138,7 +125,7 @@ payment.
 
 Pay the BOLT11 invoice with a Lightning wallet or node.
 
-If you are using `lncli`, the simplest manual path is:
+If you are using `lncli`, one manual path is:
 
 ```shell
 PAYMENT_JSON=$(lncli payinvoice --force --json "$INVOICE")
@@ -156,7 +143,7 @@ Once the invoice is settled and you have the preimage, retry the request with
 the L402 authorization header:
 
 ```shell
-curl -sk -D - \
+curl -sS -D - \
   -H "Authorization: L402 ${MACAROON_B64}:${PREIMAGE}" \
   "$BASE_URL$PAID_URL"
 ```
@@ -172,7 +159,7 @@ Expected result:
 You can verify the version returned by the server matches the manifest:
 
 ```shell
-curl -sk -D - \
+curl -sS -D - \
   -H "Authorization: L402 ${MACAROON_B64}:${PREIMAGE}" \
   "$BASE_URL$PAID_URL" -o /dev/null |
   grep -Ei 'etag:|x-skill-version:'
@@ -202,14 +189,14 @@ The following shell snippet performs the full manual flow except for the actual
 payment step:
 
 ```shell
-BASE_URL='https://127.0.0.1:8443'
+BASE_URL='https://l402.lightningnode.app'
 SKILL_ID='lightning-desktop-live-local-lnd'
 
-MANIFEST=$(curl -sk "$BASE_URL/.well-known/l402/skills/$SKILL_ID")
+MANIFEST=$(curl -sS "$BASE_URL/.well-known/l402/skills/$SKILL_ID")
 PAID_URL=$(echo "$MANIFEST" | jq -r '.paid_url')
 HDRS=$(mktemp)
 
-curl -sk -D "$HDRS" -o /dev/null "$BASE_URL$PAID_URL"
+curl -sS -D "$HDRS" -o /dev/null "$BASE_URL$PAID_URL"
 
 MACAROON_B64=$(
   grep -i '^www-authenticate: L402 ' "$HDRS" |
@@ -224,24 +211,23 @@ echo "Pay this invoice:"
 echo "$INVOICE"
 echo
 echo "After payment, retry with:"
-echo "curl -sk -H \"Authorization: L402 ${MACAROON_B64}:<payment_preimage_hex>\" \"$BASE_URL$PAID_URL\""
+echo "curl -sS -H \"Authorization: L402 ${MACAROON_B64}:<payment_preimage_hex>\" \"$BASE_URL$PAID_URL\""
 ```
 
 ## Troubleshooting
 
-### `503 {"error":"skill paywall unavailable"}`
+### `503 {"error":"unable to mint payment challenge"}`
 
-LiT could not create or verify the payment challenge. Typical causes:
+The app could not create the Lightning invoice. Typical causes:
 
-- `litd` is not connected to `lnd`
-- `lnd` is still locked
-- the backend Lightning connection is unhealthy
+- the configured `lnd` REST endpoint is unreachable from Vercel
+- the macaroon passed in `LIGHTNING_API_KEY` is invalid
+- the node is unhealthy
 
 ### Repeated `402 Payment Required` after paying
 
 Common causes:
 
-- the invoice was not actually settled
 - the preimage does not match the invoice you paid
 - the request used the wrong `macaroon` or the wrong versioned `paid_url`
 - the client sent an incorrectly formatted authorization header
@@ -256,8 +242,6 @@ Authorization: L402 <base64_macaroon>:<64_char_hex_preimage>
 
 You are likely requesting an old or malformed versioned path. Fetch the
 manifest again and use the current `paid_url`.
-
-### `405 method not allowed`
 
 The paywall routes support:
 

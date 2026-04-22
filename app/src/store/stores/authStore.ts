@@ -257,17 +257,13 @@ export default class AuthStore {
         msg.includes('proxy') ||
         msg.includes('closed network')
       ) {
-        throw new Error(
-          'Session expired. Please connect with a new pairing phrase.',
-        );
+        throw new Error('Session expired. Please connect with a new pairing phrase.');
       }
       throw err;
     }
     if (!lnc.isConnected) {
       LncApi.clearPaired();
-      throw new Error(
-        'Session expired. Please connect with a new pairing phrase.',
-      );
+      throw new Error('Session expired. Please connect with a new pairing phrase.');
     }
 
     const lncApi = new LncApi(lnc);

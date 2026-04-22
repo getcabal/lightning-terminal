@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd app && yarn install --frozen-lockfile",
+  "buildCommand": "cd app && CI=false ./node_modules/.bin/react-scripts build",
+  "outputDirectory": "app/build",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

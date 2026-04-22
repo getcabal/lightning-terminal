@@ -94,8 +94,9 @@ configuration settings in `lnd.conf`. Note that any section headers (
 Read the [walkthrough](docs/WALKTHROUGH.md) document to learn more about how to
 use LiT.
 
-For the L402 flow used to access paywalled skill content, see the
-[L402 access guide](docs/l402-skill-access.md).
+For the Vercel-hosted L402 paywall flow, see the
+[L402 access guide](docs/l402-skill-access.md) and
+[Vercel deployment guide](docs/vercel-l402-paywall.md).
 
 ## Troubleshooting
 

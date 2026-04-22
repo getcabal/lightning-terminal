@@ -30,3 +30,4 @@ profile.tmp
 
 .vscode
 *.code-workspace
+.vercel

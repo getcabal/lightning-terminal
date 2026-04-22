@@ -1255,7 +1255,9 @@ const GraphVisualization: React.FC = observer(() => {
           const sc = (b2 * e2 - c2 * d2) / denom;
           const tc = Math.max(0, Math.min(lineLen, (a2 * e2 - b2 * d2) / denom));
           if (sc > 0) {
-            const ptRay = ray.origin.clone().add(ray.direction.clone().multiplyScalar(sc));
+            const ptRay = ray.origin
+              .clone()
+              .add(ray.direction.clone().multiplyScalar(sc));
             const ptLine = start.clone().add(lineDir.clone().multiplyScalar(tc));
             const dist = ptRay.distanceTo(ptLine);
             if (dist < closestDist) {
